@@ -1,0 +1,2 @@
+# BERT Model for Fake News Classification 
+ In this project, my team and I attempts to make use of the BERT deep-learning model, which stands for Bidirectional Encoder Representations from Transformers to solve sophisticated modern issue pertaining to the fake news conundrum that is ubiquitous in Singapore and other countries. We successfully trained our model to classify fake news with an exemplary accuracy of >99%
