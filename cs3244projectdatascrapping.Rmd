@@ -1,0 +1,135 @@
+---
+title: "CS3244 GRP 26 PROJECT DATA SCRAPPING"
+author: "Phua Anson"
+date: "4/4/2022"  
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(readxl)
+library(writexl)
+library(rapportools)
+library(wordcloud)
+library(tm)
+library(tidytext)
+library(text2vec)
+library(ggplot2)
+```
+
+
+```{r code chunk}
+
+
+
+#Read csv file, filter those empty rows and noisy datas, re-encode
+raw_table <- read.csv("../data/train.csv",header = TRUE) %>% as_tibble() %>% 
+  filter(title != "", author != "",author != "nan") %>% 
+  mutate(title = iconv(title, from = 'UTF-8', to = 'ASCII//TRANSLIT'), author = iconv(author, from = 'UTF-8', to = 'ASCII//TRANSLIT'), text = iconv(text, from = 'UTF-8', to = 'ASCII//TRANSLIT'))   
+
+
+#anson takes first half of the data 
+anson_table <- raw_table[1:9142,2:5] 
+
+#detects authors that contains ???, realised that those authors that contain ??? imply the rest of the columns of the data having ??????
+# possible encoding error
+temp <- which(str_detect(anson_table$author,"\\?+"))
+
+#remove those with encoding error 
+updated_anson_table <- anson_table[-temp,] %>% filter(!is.na(text),!is.null(text), !(text %in% c(" ","")), str_detect(text, " ", negate = FALSE), !is.empty(text, trim = TRUE))
+
+
+beta <- updated_anson_table %>% group_by(text) %>% count() %>% arrange(desc(n)) %>% view()
+
+charlie <- updated_anson_table$label %>% unique()
+
+
+#Writing the excel file 
+write.csv(updated_anson_table,"../data/updated_anson_table.csv", row.names = FALSE)
+
+
+
+# Import anson table to see if the 32767 word limit per cell issue persists 
+testing <- read.csv("../data/updated_anson_table.csv",header = TRUE) %>% as_tibble() 
+# TESTED AND IT WORKS!  :) 
+
+# Now we combine anson and andre table to obtain main table 
+
+andre_table <-  read.csv("../data/andre_table.csv",header = TRUE) %>% as_tibble() 
+
+
+
+updated_main_table <- rbind(updated_anson_table,andre_table)
+
+#Writing the excel file ; This is the combined version of my table and andre table 
+write.csv(updated_main_table,"../data/main.csv", row.names = FALSE)
+
+```
+
+
+
+
+```{r clean merge_All CSV (Local news)}
+merge_All_table <- read.csv("../data/news_mergeAll.csv",header = TRUE) %>% as_tibble() %>% 
+  filter(title != "", author != "",author != "nan") %>% 
+  mutate(title = iconv(title, from = 'UTF-8', to = 'ASCII//TRANSLIT'), author = iconv(author, from = 'UTF-8', to = 'ASCII//TRANSLIT'), text = iconv(text, from = 'UTF-8', to = 'ASCII//TRANSLIT')) 
+
+
+#Writing the excel file 
+write.csv(merge_All_table,"../data/news_mergeAll.csv", row.names = FALSE)
+
+```
+
+
+
+```{EDA for Additional Remarks and Discussion for our team report}
+
+global_table <- read.csv("../data/test_ds_explorer.csv",header = TRUE) %>% as_tibble() %>% select(text,predicted) %>% filter(predicted == 0) %>% select(text) %>% mutate(text = iconv(text, from = 'UTF-8', to = 'ASCII//TRANSLIT'))  
+
+local_table <- read.csv("../data/validation_ds_explorer.csv",header = TRUE) %>% as_tibble() %>% select(text,predicted) %>% filter(predicted == 0) %>% select(text) %>% mutate(text = iconv(text, from = 'UTF-8', to = 'ASCII//TRANSLIT'))  
+
+
+# working on global 
+tokens <- str_split(global_table$text, boundary("word")) %>% 
+  unlist() %>% str_to_lower()
+tokens_no_stop <- removeWords(tokens, c(stopwords())) %>% 
+  Filter(function(x) nchar(x) >0, .)
+investigate_global <- tibble(word = tokens_no_stop) %>% group_by(word) %>% count() %>% arrange(desc(n)) 
+
+write.csv(investigate_global,"../data/investigate_global.csv", row.names = FALSE)
+
+investigate_global_subset = investigate_global[21:50,]
+
+ggplot(data=investigate_global_subset) + geom_col(mapping=aes(x=word,y=n,fill=n)) + labs(x="Word",y="Frequency",title = "Other common words in Fake News (Global)",subtitle = "Rank 21 to 50") + coord_flip() + scale_fill_continuous(name="Count",low = "firebrick1", high = "firebrick4") +theme(plot.title = element_text(hjust = 0.5),plot.subtitle = element_text(hjust = 0.5),strip.background = element_rect(
+     color="black", fill="#FFD580", size=1.5, linetype="solid"
+     ,), strip.text.x = element_text(
+        size = 12, color = "red", face = "bold.italic"
+        ))
+
+
+
+
+
+# working on local 
+tokens_2 <- str_split(local_table$text, boundary("word")) %>% 
+  unlist() %>% str_to_lower()
+tokens_no_stop_2 <- removeWords(tokens_2, c(stopwords())) %>% 
+  Filter(function(x) nchar(x) >0, .)
+investigate_local <- tibble(word = tokens_no_stop_2) %>% group_by(word) %>% count() %>% arrange(desc(n)) 
+
+write.csv(investigate_local,"../data/investigate_local.csv", row.names = FALSE)
+
+investigate_local_subset = investigate_local[21:50,]
+
+ggplot(data=investigate_local_subset) + geom_col(mapping=aes(x=word,y=n,fill=n)) + labs(x="Word",y="Frequency",title = "Other common words in Fake News (Local)",subtitle = "Rank 21 to 50") + coord_flip() + scale_fill_continuous(name="Count",low = "firebrick1", high = "firebrick4") +theme(plot.title = element_text(hjust = 0.5),plot.subtitle = element_text(hjust = 0.5),strip.background = element_rect(
+     color="black", fill="#FFD580", size=1.5, linetype="solid"
+     ,), strip.text.x = element_text(
+        size = 12, color = "red", face = "bold.italic"
+        ))
+
+
+```
+
+
+
